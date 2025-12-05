@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Skeleton for a SwissTable-inspired Map implementation.
@@ -65,10 +66,18 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 		return (byte) (hash & H2_MASK);
 	}
 
+	private int hash(Object key) {
+		return (key == null) ? 0 : key.hashCode();
+	}
+
 	/* Capacity/load helpers */
 	private int calcMaxLoad(int cap) {
 		// similar to Abseil's 7/8 load factor reserve
 		return (cap * 7) >>> 3;
+	}
+
+	private int numGroups() {
+		return capacity / DEFAULT_GROUP_SIZE;
 	}
 
 	private boolean shouldRehash() {
@@ -118,7 +127,7 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 
 	/* fresh-table insertion used only during rehash */
 	private void insertFresh(K key, V value, int h1, byte h2) {
-		int nGroups = capacity / DEFAULT_GROUP_SIZE;
+		int nGroups = numGroups();
 		if (nGroups == 0) { throw new IllegalStateException("No groups allocated"); }
 		int g = h1 % nGroups;
 		for (;;) {
@@ -140,47 +149,100 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 
 	@Override
 	public int size() {
-		throw new UnsupportedOperationException("Not implemented yet");
+		return size;
 	}
 
 	@Override
 	public boolean isEmpty() {
-		throw new UnsupportedOperationException("Not implemented yet");
+		return size == 0;
 	}
 
 	@Override
 	public boolean containsKey(Object key) {
-		throw new UnsupportedOperationException("Not implemented yet");
+		return findIndex(key) >= 0;
 	}
 
 	@Override
 	public boolean containsValue(Object value) {
-		throw new UnsupportedOperationException("Not implemented yet");
+		// linear scan; acceptable for now
+		for (int i = 0; i < ctrl.length; i++) {
+			if (isFull(ctrl[i])) {
+				if (Objects.equals(vals[i], value)) return true;
+			}
+		}
+		return false;
 	}
 
 	@Override
 	public V get(Object key) {
-		throw new UnsupportedOperationException("Not implemented yet");
+		int idx = findIndex(key);
+		return (idx >= 0) ? castValue(vals[idx]) : null;
 	}
 
 	@Override
 	public V put(K key, V value) {
-		throw new UnsupportedOperationException("Not implemented yet");
+		maybeResize();
+		int h = hash(key);
+		int h1 = h1(h);
+		byte h2 = h2(h);
+		int nGroups = numGroups();
+		int firstTombstone = -1;
+		int g = h1 % nGroups;
+		for (;;) {
+			int base = g * DEFAULT_GROUP_SIZE;
+			for (int j = 0; j < DEFAULT_GROUP_SIZE; j++) {
+				int idx = base + j;
+				byte c = ctrl[idx];
+				if (isEmpty(c)) {
+					// reuse earliest tombstone if we saw one; ensures we still
+					// scan for an existing key before deciding insertion slot
+					int target = (firstTombstone >= 0) ? firstTombstone : idx;
+					return insertAt(target, key, value, h2);
+				}
+				if (isDeleted(c) && firstTombstone < 0) {
+					firstTombstone = idx;
+					continue;
+				}
+				if (isFull(c) && c == h2 && Objects.equals(keys[idx], key)) {
+					@SuppressWarnings("unchecked")
+					V old = (V) vals[idx];
+					vals[idx] = value;
+					return old;
+				}
+			}
+			g++;
+			if (g == nGroups) g = 0;
+		}
 	}
 
 	@Override
 	public V remove(Object key) {
-		throw new UnsupportedOperationException("Not implemented yet");
+		int idx = findIndex(key);
+		if (idx < 0) return null;
+		@SuppressWarnings("unchecked")
+		V old = (V) vals[idx];
+		ctrl[idx] = DELETED;
+		keys[idx] = null;
+		vals[idx] = null;
+		size--;
+		tombstones++;
+		return old;
 	}
 
 	@Override
 	public void putAll(Map<? extends K, ? extends V> m) {
-		throw new UnsupportedOperationException("Not implemented yet");
+		for (Entry<? extends K, ? extends V> e : m.entrySet()) {
+			put(e.getKey(), e.getValue());
+		}
 	}
 
 	@Override
 	public void clear() {
-		throw new UnsupportedOperationException("Not implemented yet");
+		Arrays.fill(ctrl, EMPTY);
+		Arrays.fill(keys, null);
+		Arrays.fill(vals, null);
+		size = 0;
+		tombstones = 0;
 	}
 
 	@Override
@@ -196,5 +258,42 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 	@Override
 	public Set<Entry<K, V>> entrySet() {
 		throw new UnsupportedOperationException("Not implemented yet");
+	}
+
+	/* lookup utilities */
+	private int findIndex(Object key) {
+		if (size == 0) return -1;
+		int h = hash(key);
+		int h1 = h1(h);
+		byte h2 = h2(h);
+		int nGroups = numGroups();
+		int g = h1 % nGroups;
+		for (;;) {
+			int base = g * DEFAULT_GROUP_SIZE;
+			for (int j = 0; j < DEFAULT_GROUP_SIZE; j++) {
+				int idx = base + j;
+				byte c = ctrl[idx];
+				if (isEmpty(c)) return -1;
+				if (isFull(c) && c == h2 && Objects.equals(keys[idx], key)) {
+					return idx;
+				}
+			}
+			g++;
+			if (g == nGroups) g = 0;
+		}
+	}
+
+	private V insertAt(int idx, K key, V value, byte h2) {
+		if (isDeleted(ctrl[idx])) tombstones--;
+		ctrl[idx] = h2;
+		keys[idx] = key;
+		vals[idx] = value;
+		size++;
+		return null;
+	}
+
+	@SuppressWarnings("unchecked")
+	private V castValue(Object v) {
+		return (V) v;
 	}
 }

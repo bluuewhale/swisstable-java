@@ -26,13 +26,14 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 	private static final int DEFAULT_GROUP_SIZE = 1 << DEFAULT_SHIFT;
 
 	/* Storage and state */
-	private byte[] ctrl;     // control bytes (EMPTY/DELETED/lo-hash)
+	private byte[] ctrl;     // control bytes (EMPTY/DELETED/H2 fingerprint)
 	private Object[] keys;   // key storage
 	private Object[] vals;   // value storage
 	private int size;        // live entries
 	private int tombstones;  // deleted slots
 	private int capacity;    // total slots (length of ctrl/keys/vals)
 	private int shift = DEFAULT_SHIFT; // log2 of slots per group
+	private int maxLoad;     // threshold to trigger rehash/resize
 
 	public SwissMap() {
 		this(16);
@@ -52,6 +53,44 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 		this.vals = new Object[capacity];
 		this.size = 0;
 		this.tombstones = 0;
+		this.maxLoad = calcMaxLoad(this.capacity);
+	}
+
+	/* Hash split helpers */
+	private int h1(int hash) {
+		return (hash & H1_MASK) >>> 7;
+	}
+
+	private byte h2(int hash) {
+		return (byte) (hash & H2_MASK);
+	}
+
+	/* Capacity/load helpers */
+	private int calcMaxLoad(int cap) {
+		// similar to Abseil's 7/8 load factor reserve
+		return (cap * 7) >>> 3;
+	}
+
+	private boolean shouldRehash() {
+		// trigger when over load or too many tombstones
+		return (size + tombstones) >= maxLoad || tombstones > (size >>> 1);
+	}
+
+	/* Control byte inspectors */
+	private boolean isEmpty(byte c) { return c == EMPTY; }
+	private boolean isDeleted(byte c) { return c == DELETED; }
+	private boolean isFull(byte c) { return c >= 0 && c <= H2_MASK; } // H2 in [0,127]
+
+	/* Resize/rehash skeletons (implementation to be filled later) */
+	private void maybeResize() {
+		if (!shouldRehash()) return;
+		int newCap = Math.max(capacity * 2, DEFAULT_GROUP_SIZE);
+		rehash(newCap);
+	}
+
+	private void rehash(int newCapacity) {
+		// TODO: allocate new arrays, reset ctrl to EMPTY, and reinsert entries
+		throw new UnsupportedOperationException("Rehash not implemented yet");
 	}
 
 	@Override

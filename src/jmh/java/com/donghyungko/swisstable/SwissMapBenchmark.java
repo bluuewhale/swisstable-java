@@ -149,13 +149,15 @@ public class SwissMapBenchmark {
 	@Benchmark
 	public int swissPutMiss(MutateState s) {
 		int k = s.missingKey(s.putValue);
-		return s.swiss.put(k, s.nextValue());
+		Integer prev = s.swiss.put(k, s.nextValue());
+		return prev == null ? -1 : prev;
 	}
 
 	@Benchmark
 	public int jdkPutMiss(MutateState s) {
 		int k = s.missingKey(s.putValue);
-		return s.jdk.put(k, s.nextValue());
+		Integer prev = s.jdk.put(k, s.nextValue());
+		return prev == null ? -1 : prev;
 	}
 
 	// ------- mutating: remove -------

@@ -22,15 +22,15 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 	/* Control byte values */
 	private static final byte EMPTY = (byte) 0x80;    // empty slot
 	private static final byte DELETED = (byte) 0xFE;  // tombstone
-	// private static final byte SENTINEL = (byte) 0xFF; // optional padding for control array (unused)
+	private static final byte SENTINEL = (byte) 0xFF; // padding for SIMD overrun
 
 	/* Hash split masks: high bits choose group, low 7 bits stored in control byte */
 	private static final int H1_MASK = 0xFFFFFF80;
 	private static final int H2_MASK = 0x0000007F;
 
-	/* Group sizing: 1 << shift equals slots per group; align with Abseil width(kWidth)*/
-	private static final int DEFAULT_SHIFT = 4; // default 16 slots (128-bit SIMD)
-	private static final int DEFAULT_GROUP_SIZE = 1 << DEFAULT_SHIFT;
+	/* Group sizing: 1 << shift equals slots per group; align with SIMD width */
+	private static final VectorSpecies<Byte> SPECIES = ByteVector.SPECIES_PREFERRED;
+	private static final int DEFAULT_GROUP_SIZE = SPECIES.length(); // preferred SIMD width
 
 	/* Storage and state */
 	private byte[] ctrl;     // control bytes (EMPTY/DELETED/H2 fingerprint)
@@ -41,7 +41,6 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 	private int capacity;    // total slots (length of ctrl/keys/vals)
 	private int maxLoad;     // threshold to trigger rehash/resize
 	private boolean useSimd = true;
-	private static final VectorSpecies<Byte> SPECIES = ByteVector.SPECIES_128;
 
 	public SwissMap() {
 		this(16);
@@ -61,8 +60,9 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 		nGroups = ceilPow2(nGroups);
 		this.capacity = nGroups * DEFAULT_GROUP_SIZE;
 
-		this.ctrl = new byte[capacity];
+		this.ctrl = new byte[capacity + DEFAULT_GROUP_SIZE]; // extra for sentinel padding
 		Arrays.fill(this.ctrl, EMPTY);
+		Arrays.fill(this.ctrl, capacity, this.ctrl.length, SENTINEL);
 		this.keys = new Object[capacity];
 		this.vals = new Object[capacity];
 		this.size = 0;
@@ -110,7 +110,7 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 
 	/* SIMD helpers (fallback to 0 mask when not usable) */
 	private long simdEq(byte[] array, int base, byte value) {
-		if (!useSimd || base + SPECIES.length() > array.length) return 0L;
+		if (!useSimd) return 0L;
 		ByteVector v = ByteVector.fromArray(SPECIES, array, base);
 		return v.eq(value).toLong();
 	}
@@ -129,12 +129,14 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 		byte[] oldCtrl = this.ctrl;
 		Object[] oldKeys = this.keys;
 		Object[] oldVals = this.vals;
+		int oldCap = (oldCtrl == null) ? 0 : oldCtrl.length - DEFAULT_GROUP_SIZE; // exclude sentinel padding
 
 		int desiredGroups = Math.max(1, (Math.max(newCapacity, DEFAULT_GROUP_SIZE) + DEFAULT_GROUP_SIZE - 1) / DEFAULT_GROUP_SIZE);
 		desiredGroups = ceilPow2(desiredGroups);
 		this.capacity = desiredGroups * DEFAULT_GROUP_SIZE;
-		this.ctrl = new byte[this.capacity];
+		this.ctrl = new byte[this.capacity + DEFAULT_GROUP_SIZE];
 		Arrays.fill(this.ctrl, EMPTY);
+		Arrays.fill(this.ctrl, capacity, this.ctrl.length, SENTINEL);
 		this.keys = new Object[this.capacity];
 		this.vals = new Object[this.capacity];
 		this.size = 0;
@@ -143,7 +145,7 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 
 		if (oldCtrl == null) return;
 
-		for (int i = 0; i < oldCtrl.length; i++) {
+		for (int i = 0; i < oldCap; i++) {
 			byte c = oldCtrl[i];
 			if (!isFull(c)) continue;
 			@SuppressWarnings("unchecked")
@@ -160,7 +162,7 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 		int nGroups = numGroups();
 		if (nGroups == 0) { throw new IllegalStateException("No groups allocated"); }
 		int mask = nGroups - 1;
-		int g = h1 & mask;
+		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		for (;;) {
 			int base = g * DEFAULT_GROUP_SIZE;
 			for (int j = 0; j < DEFAULT_GROUP_SIZE; j++) {
@@ -195,7 +197,7 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 	@Override
 	public boolean containsValue(Object value) {
 		// linear scan; acceptable for now
-		for (int i = 0; i < ctrl.length; i++) {
+		for (int i = 0; i < capacity; i++) {
 			if (isFull(ctrl[i])) {
 				if (Objects.equals(vals[i], value)) return true;
 			}
@@ -218,7 +220,7 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 		int nGroups = numGroups();
 		int mask = nGroups - 1;
 		int firstTombstone = -1;
-		int g = h1 & mask;
+		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		for (;;) {
 			int base = g * DEFAULT_GROUP_SIZE;
 			if (useSimd) {
@@ -291,7 +293,8 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 
 	@Override
 	public void clear() {
-		Arrays.fill(ctrl, EMPTY);
+		Arrays.fill(ctrl, 0, capacity, EMPTY);
+		Arrays.fill(ctrl, capacity, ctrl.length, SENTINEL);
 		Arrays.fill(keys, null);
 		Arrays.fill(vals, null);
 		size = 0;
@@ -322,7 +325,7 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 		byte h2 = h2(h);
 		int nGroups = numGroups();
 		int mask = nGroups - 1;
-		int g = h1 & mask;
+		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		for (;;) {
 			int base = g * DEFAULT_GROUP_SIZE;
 			if (useSimd) {
@@ -379,7 +382,7 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 
 		@Override
 		public boolean hasNext() {
-			for (; next < ctrl.length; next++) {
+			for (; next < capacity; next++) {
 				if (isFull(ctrl[next])) return true;
 			}
 			return false;

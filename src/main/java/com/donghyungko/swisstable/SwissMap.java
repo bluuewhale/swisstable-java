@@ -32,6 +32,9 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 	private static final VectorSpecies<Byte> SPECIES = ByteVector.SPECIES_PREFERRED;
 	private static final int DEFAULT_GROUP_SIZE = SPECIES.length(); // preferred SIMD width
 
+	/* Load factor: similar to Abseil SwissTable (7/8) */
+    private static final double DEFAULT_LOAD_FACTOR = 0.875d;
+
 	/* Storage and state */
 	private byte[] ctrl;     // control bytes (EMPTY/DELETED/H2 fingerprint)
 	private Object[] keys;   // key storage
@@ -41,18 +44,34 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 	private int capacity;    // total slots (length of ctrl/keys/vals)
 	private int maxLoad;     // threshold to trigger rehash/resize
 	private boolean useSimd = true;
+	private double loadFactor = DEFAULT_LOAD_FACTOR;
+
 
 	public SwissMap() {
-		this(16);
+		this(16, DEFAULT_LOAD_FACTOR, true);
 	}
 
 	public SwissMap(int initialCapacity) {
-		init(initialCapacity);
+		this(initialCapacity, DEFAULT_LOAD_FACTOR, true);
 	}
 
 	public SwissMap(Path path) {
-		this(16);
-		this.useSimd = (path == Path.SIMD);
+		this(16, DEFAULT_LOAD_FACTOR, path == Path.SIMD);
+	}
+
+	public SwissMap(int initialCapacity, double loadFactor) {
+		this(initialCapacity, loadFactor, true);
+	}
+
+	public SwissMap(Path path, int initialCapacity, double loadFactor) {
+		this(initialCapacity, loadFactor, path == Path.SIMD);
+	}
+
+	private SwissMap(int initialCapacity, double loadFactor, boolean useSimd) {
+		validateLoadFactor(loadFactor);
+		this.loadFactor = loadFactor;
+		this.useSimd = useSimd;
+		init(initialCapacity);
 	}
 
 	private void init(int desiredCapacity) {
@@ -92,8 +111,14 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 
 	/* Capacity/load helpers */
 	private int calcMaxLoad(int cap) {
-		// similar to Abseil's 7/8 load factor reserve
-		return (cap * 7) >>> 3;
+		int ml = (int) (cap * loadFactor);
+		return Math.max(1, Math.min(ml, cap - 1));
+	}
+
+	private void validateLoadFactor(double lf) {
+		if (!(lf > 0.0d && lf < 1.0d)) {
+			throw new IllegalArgumentException("loadFactor must be in (0,1): " + lf);
+		}
 	}
 
 	private int ceilPow2(int x) {

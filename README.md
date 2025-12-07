@@ -97,7 +97,7 @@ dependencies {
 
 | iterate |  |
 | --- | --- |
-| ![CPU: iterate](images/cpu-iterate.png) |  |
+| ![CPU: iterate](images/cpu-iterate.png) |   |
 
 ## Memory Footprint (JOL)
 - Compares retained heap of `HashMap` vs `SwissMap` vs `RobinHoodMap` for multiple payload sizes.

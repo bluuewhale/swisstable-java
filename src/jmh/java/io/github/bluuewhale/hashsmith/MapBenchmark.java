@@ -188,7 +188,7 @@ public class MapBenchmark {
 	}
 
 	// ------- get hit/miss -------
-	@Benchmark
+//	@Benchmark
 	public int swissGetHit(ReadState s) {
 		return s.swiss.get(s.nextHitKey());
 	}

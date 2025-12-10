@@ -84,6 +84,7 @@ dependencies {
 
 ## Memory Footprint 
 - Compares retained heap for both maps (`HashMap` vs `SwissMap` vs `RobinHoodMap`) and sets (`HashSet` vs `SwissSet`).
+- Payloads are tested with UUID String keys when benchmarking sets, to avoid comparing against primitive-specialized collections (e.g., `IntOpenHashSet`, `LongOpenHashSet`) that are already highly optimized.
 ### Results
 - Maps: `SwissMap` and `RobinHoodMap` use open addressing to cut space; `SwissMap` keeps a 0.875 default load factor and shows up to 53.3% retained-heap reduction in payload-light cases vs `HashMap`.
 - Sets: `SwissSet` (SwissHashSet) mirrors the SwissTable layout with SIMD control-byte probing and reuses tombstones to stay denser than `HashSet` across tested payloads, showing up to ~62% retained-heap reduction in lighter payload cases.

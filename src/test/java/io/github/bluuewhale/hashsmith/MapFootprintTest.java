@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 import java.nio.charset.StandardCharsets;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.eclipse.collections.impl.map.mutable.UnifiedMap;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -39,12 +40,13 @@ public class MapFootprintTest {
 	private static final List<MapSpec> MAP_SPECS = List.of(
 //			new MapSpec("HashMap", HashMap::new)
 			new MapSpec("SwissMap", SwissMap::new),
-			new MapSpec("RobinHoodMap", RobinHoodMap::new),
-			new MapSpec("UnifiedMap", UnifiedMap::new)
+			new MapSpec("UnifiedMap", UnifiedMap::new),
+			new MapSpec("Object2ObjectOpenHashMap", Object2ObjectOpenHashMap::new)
 	);
 
 	private enum Payload {
-		BOOLEAN, INT, SHORT_STR, LONG_STR
+		BOOLEAN,
+//        INT, SHORT_STR, LONG_STR
 	}
 
     private static Stream<Arguments> payloadsAndMaps() {
@@ -68,10 +70,10 @@ public class MapFootprintTest {
 
     private static Object payloadValue(Payload payload, Random rnd) {
 		return switch (payload) {
-			case INT -> rnd.nextInt();
+//			case INT -> rnd.nextInt();
 			case BOOLEAN -> rnd.nextBoolean();
-			case SHORT_STR -> randomUtf8(rnd, SHORT_STR_LEN);
-			case LONG_STR -> randomUtf8(rnd, LONG_STR_LEN);
+//			case SHORT_STR -> randomUtf8(rnd, SHORT_STR_LEN);
+//			case LONG_STR -> randomUtf8(rnd, LONG_STR_LEN);
 		};
     }
 

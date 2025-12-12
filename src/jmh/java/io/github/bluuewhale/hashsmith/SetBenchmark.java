@@ -30,9 +30,26 @@ import org.openjdk.jmh.infra.Blackhole;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 public class SetBenchmark {
 
+	private static void generateKeysAndMisses(Random rnd, String[] keys, String[] misses) {
+		if (keys.length != misses.length) throw new IllegalArgumentException("keys and misses must have same length");
+		int size = keys.length;
+		Set<String> set = new HashSet<>(size * 2);
+		for (int i = 0; i < size; i++) {
+			String k;
+			do { k = nextUuidString(rnd); } while (!set.add(k));
+			keys[i] = k;
+		}
+		for (int i = 0; i < size; i++) {
+			String miss;
+			do { miss = nextUuidString(rnd); } while (set.contains(miss));
+			misses[i] = miss;
+			set.add(miss); // keep misses unique as well
+		}
+	}
+
 	@State(Scope.Benchmark)
 	public static class ReadState {
-		@Param({ "10000", "100000", "200000", "400000" })
+		@Param({ "12000", "48000", "196000", "784000" }) // align with MapBenchmark load factors
 		int size;
 
 		SwissSet<String> swiss;
@@ -89,8 +106,8 @@ public class SetBenchmark {
 	}
 
 	@State(Scope.Thread)
-	public static class MutateState {
-		@Param({ "10000", "100000", "200000", "400000" })
+	public static class PutHitState {
+		@Param({ "12000", "48000", "196000", "784000" }) // align with MapBenchmark load factors
 		int size;
 
 		String[] keys;
@@ -108,17 +125,7 @@ public class SetBenchmark {
 			rnd = new Random(456);
 			keys = new String[size];
 			misses = new String[size];
-			Set<String> keySet = new HashSet<>(size * 2);
-			for (int i = 0; i < size; i++) {
-				String k = nextUuidString(rnd);
-				keys[i] = k;
-				keySet.add(k);
-			}
-			for (int i = 0; i < size; i++) {
-				String miss;
-				do { miss = nextUuidString(rnd); } while (keySet.contains(miss));
-				misses[i] = miss;
-			}
+			generateKeysAndMisses(rnd, keys, misses);
 		}
 
 		@Setup(Level.Iteration)
@@ -150,6 +157,75 @@ public class SetBenchmark {
 		}
 	}
 
+	/**
+	 * Steady-state add-miss: remove one existing element before each invocation so that
+	 * the set size stays constant at n while the measured region only performs an "add miss".
+	 */
+	@State(Scope.Thread)
+	public static class PutMissState {
+		@Param({ "12000", "48000", "196000", "784000" }) // align with MapBenchmark load factors
+		int size;
+
+		String[] keys;   // present
+		String[] misses; // absent
+		int existingIndex;
+		int missingIndex;
+		String preparedMissKey;
+		Random rnd;
+
+		SwissSet<String> swiss;
+		HashSet<String> jdk;
+		ObjectOpenHashSet<String> fastutil;
+		UnifiedSet<String> unified;
+
+		@Setup(Level.Trial)
+		public void initKeys() {
+			rnd = new Random(789);
+			keys = new String[size];
+			misses = new String[size];
+			generateKeysAndMisses(rnd, keys, misses);
+		}
+
+		@Setup(Level.Iteration)
+		public void resetSets() {
+			swiss = new SwissSet<>();
+			jdk = new HashSet<>();
+			fastutil = new ObjectOpenHashSet<>();
+			unified = new UnifiedSet<>();
+			for (String k : keys) {
+				swiss.add(k);
+				jdk.add(k);
+				fastutil.add(k);
+				unified.add(k);
+			}
+			existingIndex = 0;
+			missingIndex = 0;
+		}
+
+		@Setup(Level.Invocation)
+		public void beforeInvocation() {
+			int ei = existingIndex;
+			int mi = missingIndex;
+
+			String evict = keys[ei];
+			swiss.remove(evict);
+			jdk.remove(evict);
+			fastutil.remove(evict);
+			unified.remove(evict);
+
+			preparedMissKey = misses[mi];
+
+			// swap so preparedMissKey becomes "present" and evict becomes "absent"
+			keys[ei] = preparedMissKey;
+			misses[mi] = evict;
+
+			existingIndex = (ei + 1) % keys.length;
+			missingIndex = (mi + 1) % misses.length;
+		}
+
+		String nextMissKey() { return preparedMissKey; }
+	}
+
 	// contains hit/miss
 //	@Benchmark
 	public void swissContainsHit(ReadState s, Blackhole bh) { boolean res = s.swiss.contains(s.nextHitKey()); bh.consume(res); }
@@ -177,28 +253,28 @@ public class SetBenchmark {
 
 	// add hit/miss
 //	@Benchmark
-	public void swissAddHit(MutateState s, Blackhole bh) { boolean res = s.swiss.add(s.nextHitKey()); bh.consume(res); }
+	public void swissAddHit(PutHitState s, Blackhole bh) { boolean res = s.swiss.add(s.nextHitKey()); bh.consume(res); }
 
 //	@Benchmark
-	public void jdkAddHit(MutateState s, Blackhole bh) { boolean res = s.jdk.add(s.nextHitKey()); bh.consume(res); }
+	public void jdkAddHit(PutHitState s, Blackhole bh) { boolean res = s.jdk.add(s.nextHitKey()); bh.consume(res); }
 
 	@Benchmark
-	public void fastutilAddHit(MutateState s, Blackhole bh) { boolean res = s.fastutil.add(s.nextHitKey()); bh.consume(res); }
+	public void fastutilAddHit(PutHitState s, Blackhole bh) { boolean res = s.fastutil.add(s.nextHitKey()); bh.consume(res); }
 
 	@Benchmark
-	public void unifiedAddHit(MutateState s, Blackhole bh) { boolean res = s.unified.add(s.nextHitKey()); bh.consume(res); }
+	public void unifiedAddHit(PutHitState s, Blackhole bh) { boolean res = s.unified.add(s.nextHitKey()); bh.consume(res); }
 
 //	@Benchmark
-	public void swissAddMiss(MutateState s, Blackhole bh) { boolean res = s.swiss.add(s.nextMissKey()); bh.consume(res); }
+	public void swissAddMiss(PutHitState s, Blackhole bh) { boolean res = s.swiss.add(s.nextMissKey()); bh.consume(res); }
 
 //	@Benchmark
-	public void jdkAddMiss(MutateState s, Blackhole bh) { boolean res = s.jdk.add(s.nextMissKey()); bh.consume(res); }
+	public void jdkAddMiss(PutHitState s, Blackhole bh) { boolean res = s.jdk.add(s.nextMissKey()); bh.consume(res); }
 
 	@Benchmark
-	public void fastutilAddMiss(MutateState s, Blackhole bh) { boolean res = s.fastutil.add(s.nextMissKey()); bh.consume(res); }
+	public void fastutilAddMiss(PutMissState s, Blackhole bh) { boolean res = s.fastutil.add(s.nextMissKey()); bh.consume(res); }
 
 	@Benchmark
-	public void unifiedAddMiss(MutateState s, Blackhole bh) { boolean res = s.unified.add(s.nextMissKey()); bh.consume(res); }
+	public void unifiedAddMiss(PutMissState s, Blackhole bh) { boolean res = s.unified.add(s.nextMissKey()); bh.consume(res); }
 
 	private static String nextUuidString(Random rnd) {
 		return new UUID(rnd.nextLong(), rnd.nextLong()).toString();

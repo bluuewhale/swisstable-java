@@ -5,22 +5,10 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.eclipse.collections.impl.map.mutable.UnifiedMap;
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.BenchmarkMode;
-import org.openjdk.jmh.annotations.Level;
-import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.Measurement;
-import org.openjdk.jmh.annotations.Mode;
-import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.Warmup;
+import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
 @Fork(
@@ -45,6 +33,29 @@ public class MapBenchmark {
 
 	private static String randomUuidString(Random rnd) {
 		return new UUID(rnd.nextLong(), rnd.nextLong()).toString();
+	}
+
+	/**
+	 * Generates UUID-string keys and miss-keys such that:
+	 * - keys are unique
+	 * - misses are unique
+	 * - misses never overlap with keys
+	 */
+	private static void generateKeysAndMisses(Random rnd, String[] keys, String[] misses) {
+		if (keys.length != misses.length) throw new IllegalArgumentException("keys and misses must have same length");
+		int size = keys.length;
+		var set = new java.util.HashSet<String>(size * 2);
+		for (int i = 0; i < size; i++) {
+			String k;
+			do { k = randomUuidString(rnd); } while (!set.add(k));
+			keys[i] = k;
+		}
+		for (int i = 0; i < size; i++) {
+			String miss;
+			do { miss = randomUuidString(rnd); } while (set.contains(miss));
+			misses[i] = miss;
+			set.add(miss); // ensures misses are unique as well
+		}
 	}
 
 	@State(Scope.Benchmark)
@@ -109,15 +120,14 @@ public class MapBenchmark {
 	}
 
 	@State(Scope.Thread)
-	public static class MutateState {
+	public static class PutHitState {
         @Param({ "12000", "48000", "196000", "784000" }) // load factor equals to 74.x% (right before resizing)
 		int size;
 
+		int idx;
 		String[] keys;
 		String[] misses;
 		Random rnd;
-		int existingIndex;
-		int missingIndex;
 		SwissMap<String, Object> swiss;
 		RobinHoodMap<String, Object> robin;
 		Object2ObjectOpenHashMap<String, Object> fastutil;
@@ -127,12 +137,14 @@ public class MapBenchmark {
 		@Setup(Level.Trial)
 		public void initKeys() {
 			rnd = new Random(456);
-			keys = IntStream.range(0, size).mapToObj(i -> randomUuidString(rnd)).toArray(String[]::new);
-			misses = IntStream.range(0, size).mapToObj(i -> randomUuidString(rnd)).toArray(String[]::new);
+			keys = new String[size];
+			misses = new String[size];
+			generateKeysAndMisses(rnd, keys, misses);
 		}
 
 		@Setup(Level.Iteration)
 		public void resetMaps() {
+			idx = 0;
 			swiss = new SwissMap<>();
 			robin = new RobinHoodMap<>();
 			fastutil = new Object2ObjectOpenHashMap<>();
@@ -145,78 +157,96 @@ public class MapBenchmark {
 				unified.put(keys[i], "dummy");
 				jdk.put(keys[i], "dummy");
 			}
-			existingIndex = 0;
-			missingIndex = 0;
+			idx = 0;
 		}
 
 		String nextHitKey() {
-			var k = keys[existingIndex];
-			existingIndex = (existingIndex + 1) % keys.length;
-			return k;
-		}
-		String nextMissingKey() {
-			var k = misses[missingIndex];
-			missingIndex = (missingIndex + 1) % misses.length;
+			var k = keys[idx];
+			idx = (idx + 1) % keys.length;
 			return k;
 		}
 		String nextValue() { return "dummy"; }
 	}
 
+	/**
+	 * Keeps entry count constant at n by doing the compensating remove
+	 * in {@code @Setup(Level.Invocation)} (excluded from measurement).
+	 *
+	 * Benchmark methods should only call {@code put(nextMissKey(), value)} so that the measured region is insertion only.
+	 */
 	@State(Scope.Thread)
-	public static class RemoveState {
-		@Param({ "100", "1000", "10000" })
+	public static class PutMissState {
+		@Param({ "12000", "48000", "196000", "784000" }) // load factor equals to 74.x% (right before resizing)
 		int size;
+
+		int idx;
+		String[] keys;   // keys currently present in the maps
+		String[] misses; // keys currently absent from the maps
+		Random rnd;
+
+		String nextKey;
 
 		SwissMap<String, Object> swiss;
 		RobinHoodMap<String, Object> robin;
 		Object2ObjectOpenHashMap<String, Object> fastutil;
 		UnifiedMap<String, Object> unified;
 		HashMap<String, Object> jdk;
-		String[] keys;
-		String[] misses;
-		Random rnd;
 
 		@Setup(Level.Trial)
-		public void initData() {
-			rnd = new Random(789);
+		public void initKeys() {
+			rnd = new Random(456);
 			keys = new String[size];
 			misses = new String[size];
-			var keySet = new java.util.HashSet<>(size * 2);
-			for (int i = 0; i < size; i++) {
-				var k = randomUuidString(rnd);
-				keys[i] = k;
-				keySet.add(k);
-			}
-			for (int i = 0; i < size; i++) {
-				String miss;
-				do { miss = randomUuidString(rnd); } while (keySet.contains(miss));
-				misses[i] = miss;
-			}
+			generateKeysAndMisses(rnd, keys, misses);
 		}
 
-		@Setup(Level.Invocation)
+		@Setup(Level.Iteration)
 		public void resetMaps() {
+			idx = 0;
 			swiss = new SwissMap<>();
 			robin = new RobinHoodMap<>();
 			fastutil = new Object2ObjectOpenHashMap<>();
 			unified = new UnifiedMap<>();
 			jdk = new HashMap<>();
 			for (int i = 0; i < size; i++) {
-				var value = new Object();
-				swiss.put(keys[i], value);
-				robin.put(keys[i], value);
-				fastutil.put(keys[i], value);
-				unified.put(keys[i], value);
-				jdk.put(keys[i], value);
+				swiss.put(keys[i], "dummy");
+				robin.put(keys[i], "dummy");
+				fastutil.put(keys[i], "dummy");
+				unified.put(keys[i], "dummy");
+				jdk.put(keys[i], "dummy");
 			}
 		}
 
-		String hitKey() { return keys[rnd.nextInt(keys.length)]; }
-		String missKey() { return misses[rnd.nextInt(misses.length)]; }
+		/**
+		 * Prepares a steady-size insertion for the next benchmark invocation:
+		 * - remove one existing key so size becomes n-1
+		 * - choose one missing key for insertion
+		 * - swap keys/misses so hit/miss invariants remain true for subsequent invocations
+		 */
+		@Setup(Level.Invocation)
+		public void beforeInvocation() {
+			String evictKey = keys[idx];
+			swiss.removeWithoutTombstone(evictKey); // SwissMap: delete without tombstones to keep load factor clean
+			robin.remove(evictKey);
+			fastutil.remove(evictKey);
+			unified.remove(evictKey);
+			jdk.remove(evictKey);
+
+			nextKey = misses[idx];
+
+			// swap so that nextKey becomes a "present" key and evict becomes an "absent" key
+			keys[idx] = nextKey;
+			misses[idx] = evictKey;
+
+			idx = (idx + 1) % keys.length;
+		}
+
+		String nextMissKey() { return nextKey; }
+		String nextValue() { return "dummy"; }
 	}
 
 	// ------- get hit/miss -------
-	@Benchmark
+//	@Benchmark
 	public void swissGetHit(ReadState s, Blackhole bh) {
 		bh.consume(s.swiss.get(s.nextHitKey()));
 	}
@@ -226,22 +256,22 @@ public class MapBenchmark {
         bh.consume(s.robin.get(s.nextHitKey()));
 	}
 
-	@Benchmark
+//	@Benchmark
 	public void fastutilGetHit(ReadState s, Blackhole bh) {
         bh.consume(s.fastutil.get(s.nextHitKey()));
 	}
 
-	@Benchmark
+//	@Benchmark
 	public void unifiedGetHit(ReadState s, Blackhole bh) {
         bh.consume(s.unified.get(s.nextHitKey()));
 	}
 
-	@Benchmark
+//	@Benchmark
 	public void jdkGetHit(ReadState s, Blackhole bh) {
         bh.consume(s.jdk.get(s.nextHitKey()));
 	}
 
-	@Benchmark
+//	@Benchmark
 	public void swissGetMiss(ReadState s, Blackhole bh) {
 		bh.consume(s.swiss.get(s.nextMissingKey()));
 	}
@@ -251,131 +281,62 @@ public class MapBenchmark {
         bh.consume(s.robin.get(s.nextMissingKey()));
 	}
 
-	@Benchmark
+//	@Benchmark
 	public void fastutilGetMiss(ReadState s, Blackhole bh) {
         bh.consume(s.fastutil.get(s.nextMissingKey()));
 	}
 
-	 @Benchmark
+//	 @Benchmark
 	public void unifiedGetMiss(ReadState s, Blackhole bh) {
         bh.consume(s.unified.get(s.nextMissingKey()));
 	}
 
-	@Benchmark
+//	@Benchmark
 	public void jdkGetMiss(ReadState s, Blackhole bh) {
         bh.consume(s.jdk.get(s.nextMissingKey()));
 	}
 
 	// ------- mutating: put hit/miss -------
-//	@Benchmark
-	public void swissPutHit(MutateState s, Blackhole bh) {
+	@Benchmark
+	public void swissPutHit(PutHitState s, Blackhole bh) {
         bh.consume(s.swiss.put(s.nextHitKey(), s.nextValue()));
 	}
 
-	//  @Benchmark
-	public void robinPutHit(MutateState s, Blackhole bh) {
-        bh.consume(s.robin.put(s.nextHitKey(), s.nextValue()));
-	}
-
-//  @Benchmark
-	public void fastutilPutHit(MutateState s, Blackhole bh) {
+    @Benchmark
+	public void fastutilPutHit(PutHitState s, Blackhole bh) {
         bh.consume(s.fastutil.put(s.nextHitKey(), s.nextValue()));
 	}
 
-	// @Benchmark
-	public void unifiedPutHit(MutateState s, Blackhole bh) {
+	@Benchmark
+	public void unifiedPutHit(PutHitState s, Blackhole bh) {
         bh.consume(s.unified.put(s.nextHitKey(), s.nextValue()));
 	}
 
-//	@Benchmark
-	public void jdkPutHit(MutateState s, Blackhole bh) {
+	@Benchmark
+	public void jdkPutHit(PutHitState s, Blackhole bh) {
         bh.consume(s.jdk.put(s.nextHitKey(), s.nextValue()));
 	}
 
-//	@Benchmark
-	public void swissPutMiss(MutateState s, Blackhole bh) {
-        bh.consume(s.swiss.put(s.nextMissingKey(), s.nextValue()));
+	@Benchmark
+	public void swissPutMiss(PutMissState s, Blackhole bh) {
+        bh.consume(s.swiss.put(s.nextMissKey(), s.nextValue()));
 	}
 
-	//  @Benchmark
-	public void robinPutMiss(MutateState s, Blackhole bh) {
-        bh.consume(s.robin.put(s.nextMissingKey(), s.nextValue()));
+    @Benchmark
+	public void fastutilPutMiss(PutMissState s, Blackhole bh) {
+        bh.consume(s.fastutil.put(s.nextMissKey(), s.nextValue()));
 	}
 
-// @Benchmark
-	public void fastutilPutMiss(MutateState s, Blackhole bh) {
-        bh.consume(s.fastutil.put(s.nextMissingKey(), s.nextValue()));
+    @Benchmark
+	public void unifiedPutMiss(PutMissState s, Blackhole bh) {
+        bh.consume(s.unified.put(s.nextMissKey(), s.nextValue()));
 	}
 
-	// @Benchmark
-	public void unifiedPutMiss(MutateState s, Blackhole bh) {
-        bh.consume(s.unified.put(s.nextMissingKey(), s.nextValue()));
+	@Benchmark
+	public void jdkPutMiss(PutMissState s, Blackhole bh) {
+        bh.consume(s.jdk.put(s.nextMissKey(), s.nextValue()));
 	}
 
-//	@Benchmark
-	public void jdkPutMiss(MutateState s, Blackhole bh) {
-        bh.consume(s.jdk.put(s.nextMissingKey(), s.nextValue()));
-	}
-
-	// ------- remove hit/miss -------
-	// @Benchmark
-	public void swissRemoveHit(RemoveState s, Blackhole bh) {
-        bh.consume(s.swiss.remove(s.hitKey()));
-	}
-
-	// @Benchmark
-	public void robinRemoveHit(RemoveState s, Blackhole bh) {
-        bh.consume(s.robin.remove(s.hitKey()));
-	}
-
-	// @Benchmark
-	public void fastutilRemoveHit(RemoveState s, Blackhole bh) {
-        bh.consume(s.fastutil.remove(s.hitKey()));
-	}
-
-	// @Benchmark
-	public void unifiedRemoveHit(RemoveState s, Blackhole bh) {
-        bh.consume(s.unified.remove(s.hitKey()));
-	}
-
-	// @Benchmark
-	public void jdkRemoveHit(RemoveState s, Blackhole bh) {
-        bh.consume(s.jdk.remove(s.hitKey()));
-	}
-
-	// @Benchmark
-	public void swissRemoveMiss(RemoveState s, Blackhole bh) {
-        bh.consume(s.swiss.remove(s.missKey()));
-	}
-
-	// @Benchmark
-	public void robinRemoveMiss(RemoveState s, Blackhole bh) {
-        bh.consume(s.robin.remove(s.missKey()));
-	}
-
-	// @Benchmark
-	public void fastutilRemoveMiss(RemoveState s, Blackhole bh) {
-        bh.consume(s.fastutil.remove(s.missKey()));
-	}
-
-	// @Benchmark
-	public void unifiedRemoveMiss(RemoveState s, Blackhole bh) {
-        bh.consume(s.unified.remove(s.missKey()));
-	}
-
-	// @Benchmark
-	public void jdkRemoveMiss(RemoveState s, Blackhole bh) {
-        bh.consume(s.jdk.remove(s.missKey()));
-	}
-
-    // ------- iterate -------
-//	@Benchmark
-    public void swissIterate(ReadState s, Blackhole bh) {
-        for (var e : s.swiss.entrySet()) {
-            bh.consume(e.getKey());
-            bh.consume(e.getValue());
-        }
-    }
 
     //	@Benchmark
     public void robinIterate(ReadState s, Blackhole bh) {

@@ -33,3 +33,5 @@ Thumbs.db
 # Log files
 *.log
 
+
+*.jfr

@@ -195,6 +195,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		int nGroups = numGroups();
 		int mask = nGroups - 1;
 		int firstTombstone = -1;
+		int visitedGroups = 0;
 		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		for (;;) {
 			int base = g * DEFAULT_GROUP_SIZE;
@@ -219,6 +220,9 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 				int idx = base + Long.numberOfTrailingZeros(emptyMask);
 				int target = (firstTombstone >= 0) ? firstTombstone : idx;
 				return insertAt(target, key, value, h2);
+			}
+			if (++visitedGroups >= nGroups) {
+				throw new IllegalStateException("Probe cycle exhausted; table appears full of tombstones");
 			}
 			g = (g + 1) & mask;
 		}
@@ -281,6 +285,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		byte h2 = h2(h);
 		int nGroups = numGroups();
 		int mask = nGroups - 1;
+		int visitedGroups = 0;
 		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		for (;;) {
 			int base = g * DEFAULT_GROUP_SIZE;
@@ -296,6 +301,9 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 			}
 			long emptyMask = v.eq(EMPTY).toLong();
 			if (emptyMask != 0) { // almost always true
+				return -1;
+			}
+			if (++visitedGroups >= nGroups) { // guard against infinite probe when table is full of tombstones
 				return -1;
 			}
 			g = (g + 1) & mask;

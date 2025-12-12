@@ -4,3 +4,4 @@
 
 ## Unreleased
 - SwissMap SIMD probe now loads control bytes once per group and reuses the vector for fingerprint/empty/tombstone masks to cut repeated loads.
+- Added a SwissMap probe group-visit cap to prevent infinite probing when tombstones saturate the table.

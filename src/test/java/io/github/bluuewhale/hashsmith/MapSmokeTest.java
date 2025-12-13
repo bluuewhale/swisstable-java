@@ -65,6 +65,24 @@ class MapSmokeTest {
                 () -> new RobinHoodMap<>(16, 0.875),
                 cap -> new RobinHoodMap<>(cap, 0.875),
                 0.875
+            ),
+			new MapSpec(
+                "SwissSwarMap",
+                () -> new SwissSwarMap<>(16, 0.5),
+                cap -> new SwissSwarMap<>(cap, 0.5),
+                0.5
+            ),
+            new MapSpec(
+                "SwissSwarMap",
+                () -> new SwissSwarMap<>(16, 0.75),
+                cap -> new SwissSwarMap<>(cap, 0.75),
+                0.75
+            ),
+            new MapSpec(
+                "SwissSwarMap",
+                () -> new SwissSwarMap<>(16, 0.875),
+                cap -> new SwissSwarMap<>(cap, 0.875),
+                0.875
             )
 		);
 	}

@@ -105,7 +105,7 @@ dependencies {
 
 | put hit                                     | put miss                                      |
 |---------------------------------------------|-----------------------------------------------|
-| ![CPU: put hit](images/map-cpu-put-hit.png) | ![CPU: put miss](images/map-cpu-put-miss.png) |
+| ![CPU: put hit](images/map-cpu-put-hit.png) | ![CPU: put miss](images/map-cpu-put-hit.png) |
 
 
 ## Contributing

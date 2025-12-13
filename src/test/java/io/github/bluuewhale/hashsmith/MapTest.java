@@ -37,6 +37,13 @@ class MapTest {
 				RobinHoodMap::new,
 				false,
 				true
+			),
+			new MapSpec(
+				"SwissSwarMap",
+				SwissSwarMap::new,
+				SwissSwarMap::new,
+				true,
+				false
 			)
 		);
 	}
@@ -271,7 +278,9 @@ class MapTest {
 	@MethodSource("mapSpecs")
 	void keySetRemoveAllRetainAll(MapSpec spec) {
 		var m = newMap(spec);
-		m.put("a", 1); m.put("b", 2); m.put("c", 3);
+		m.put("a", 1);
+        m.put("b", 2);
+        m.put("c", 3);
 		var removeSet = java.util.Set.of("a", "x");
 
 		m.keySet().removeAll(removeSet);
@@ -326,7 +335,9 @@ class MapTest {
 	@MethodSource("mapSpecs")
 	void entrySetSetValueAcrossAll(MapSpec spec) {
 		var m = newMap(spec);
-		m.put("a", 1); m.put("b", 2); m.put("c", 3);
+		m.put("a", 1);
+        m.put("b", 2);
+        m.put("c", 3);
 
 		for (var e : m.entrySet()) {
 			e.setValue(100);

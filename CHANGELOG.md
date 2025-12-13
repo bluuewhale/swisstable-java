@@ -1,6 +1,6 @@
 # Changelog
 ## Unreleased
-- (none)
+- Fixed `SwissMap` and `SwissSet` to only grow (2x resize) when rehashing due to exceeding `maxLoad`; tombstone-cleanup rehash now keeps the same capacity to prevent unbounded growth under heavy delete workloads.
 
 ## 0.1.4
 - Added `SwissMap#removeWithoutTombstone` for efficient deletions without leaving tombstones for benchmark tests

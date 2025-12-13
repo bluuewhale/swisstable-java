@@ -84,11 +84,6 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		return capacity / DEFAULT_GROUP_SIZE;
 	}
 
-	private boolean shouldRehash() {
-		// trigger when over load or too many tombstones
-		return (size + tombstones) >= maxLoad || tombstones > (size >>> 1);
-	}
-
 	/* Control byte inspectors */
 	private boolean isEmpty(byte c) { return c == EMPTY; }
 	private boolean isDeleted(byte c) { return c == DELETED; }
@@ -99,10 +94,16 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		return ByteVector.fromArray(SPECIES, ctrl, base);
 	}
 
-	/* Resize/rehash skeletons (implementation to be filled later) */
-	private void maybeResize() {
-		if (!shouldRehash()) return;
-		int newCap = Math.max(capacity * 2, DEFAULT_GROUP_SIZE);
+	/* Resize/rehash */
+	private void maybeRehash() {
+		// trigger when over load or too many tombstones
+		boolean overMaxLoad = (size + tombstones) >= maxLoad;
+		boolean tooManyTombstones = tombstones > (size >>> 1);
+		if (!overMaxLoad && !tooManyTombstones) return;
+
+		// Only grow the table when we are actually over the max load threshold.
+		// If we are rehashing just to clean up tombstones, keep the capacity.
+		int newCap = overMaxLoad ? Math.max(capacity * 2, DEFAULT_GROUP_SIZE) : capacity;
 		rehash(newCap);
 	}
 
@@ -188,7 +189,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 
 	@Override
 	public V put(K key, V value) {
-		maybeResize();
+		maybeRehash();
 		int h = hash(key);
 		int h1 = h1(h);
 		byte h2 = h2(h);
@@ -239,7 +240,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		vals[idx] = null;
 		size--;
 		tombstones++;
-		maybeResize();
+		maybeRehash();
 		return old;
 	}
 

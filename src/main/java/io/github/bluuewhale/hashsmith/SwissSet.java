@@ -87,7 +87,7 @@ public class SwissSet<E> extends AbstractSet<E> {
 
 	@Override
 	public boolean add(E e) {
-		maybeResize();
+		maybeRehash();
 		int h = hash(e);
 		int h1 = h1(h);
 		byte h2 = h2(h);
@@ -127,7 +127,7 @@ public class SwissSet<E> extends AbstractSet<E> {
 		keys[idx] = null;
 		size--;
 		tombstones++;
-		maybeResize();
+		maybeRehash();
 		return true;
 	}
 
@@ -163,10 +163,6 @@ public class SwissSet<E> extends AbstractSet<E> {
 		return (byte) (hash & H2_MASK);
 	}
 
-	private boolean shouldRehash() {
-		return (size + tombstones) >= maxLoad || tombstones > (size >>> 1);
-	}
-
 	private boolean isEmpty(byte c) { return c == EMPTY; }
 	private boolean isDeleted(byte c) { return c == DELETED; }
 	private boolean isFull(byte c) { return c >= 0 && c <= H2_MASK; }
@@ -179,9 +175,12 @@ public class SwissSet<E> extends AbstractSet<E> {
 	private long simdEmpty(byte[] array, int base) { return simdEq(array, base, EMPTY); }
 	private long simdDeleted(byte[] array, int base) { return simdEq(array, base, DELETED); }
 
-	private void maybeResize() {
-		if (!shouldRehash()) return;
-		int newCap = Math.max(capacity * 2, DEFAULT_GROUP_SIZE);
+	private void maybeRehash() {
+		boolean overMaxLoad = (size + tombstones) >= maxLoad;
+		boolean tooManyTombstones = tombstones > (size >>> 1);
+		if (!overMaxLoad && !tooManyTombstones) return;
+
+		int newCap = overMaxLoad ? Math.max(capacity * 2, DEFAULT_GROUP_SIZE) : capacity;
 		rehash(newCap);
 	}
 
@@ -315,6 +314,7 @@ public class SwissSet<E> extends AbstractSet<E> {
 				keys[last] = null;
 				size--;
 				tombstones++;
+				maybeRehash();
 			}
 			last = -1;
 		}

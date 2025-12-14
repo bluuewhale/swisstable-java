@@ -272,7 +272,10 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
         if (m.isEmpty()) return;
 
         // Pre-check if resizing is needed, keeping consistent logic with maybeRehash
-        boolean overMaxLoad = (size + tombstones + m.size()) >= maxLoad;
+		// account for tombstone reuse when projecting load before rehash
+		// TODO: consider overlap-heavy putAll cases to avoid overestimating pre-size
+		int projectedSize = size + tombstones + Math.max(0, m.size() - tombstones);
+        boolean overMaxLoad = projectedSize >= maxLoad;
 
         if (overMaxLoad) {
             // Directly use newSize as the new capacity, rehash method will automatically adjust to appropriate capacity

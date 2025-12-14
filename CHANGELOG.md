@@ -3,6 +3,9 @@
 ### Added
 ### Fixed
 ### Changed
+- optimize `putAll` by pre-sizing capacity for batch insertion to reduce resizing/rehashing (#3, thanks @NBHZW).
+- refactor `put` into `putVal` for code reuse/readability (#3, thanks @NBHZW).
+
 
 ## 0.1.6
 - Added `SwissSwarMap`: SWAR-based SwissTable variant (8-slot groups, packed control bytes) plus JMH benchmarks alongside SwissMap.

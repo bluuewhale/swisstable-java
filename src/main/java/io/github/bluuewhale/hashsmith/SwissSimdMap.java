@@ -32,6 +32,8 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
     private static final double DEFAULT_LOAD_FACTOR = 0.875d;
 
 	/* Storage and state */
+	private int numGroups;   // cached group count (updated on init/rehash)
+	private int groupMask;   // cached (numGroups - 1), valid because numGroups is power-of-two
 	private byte[] ctrl;     // control bytes (EMPTY/DELETED/H2 fingerprint)
 	private Object[] keys;   // key storage
 	private Object[] vals;   // value storage
@@ -54,6 +56,8 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 	protected void init(int desiredCapacity) {
 		int nGroups = Math.max(1, (desiredCapacity + DEFAULT_GROUP_SIZE - 1) / DEFAULT_GROUP_SIZE);
 		nGroups = ceilPow2(nGroups);
+		this.numGroups = nGroups;
+		this.groupMask = nGroups - 1;
 		this.capacity = nGroups * DEFAULT_GROUP_SIZE;
 
 		this.ctrl = new byte[capacity + DEFAULT_GROUP_SIZE]; // extra for sentinel padding
@@ -77,10 +81,6 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 
 	private int hash(Object key) {
 		return hashNullable(key);
-	}
-
-	private int numGroups() {
-		return capacity / DEFAULT_GROUP_SIZE;
 	}
 
 	/* Control byte inspectors */
@@ -114,6 +114,8 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 
 		int desiredGroups = Math.max(1, (Math.max(newCapacity, DEFAULT_GROUP_SIZE) + DEFAULT_GROUP_SIZE - 1) / DEFAULT_GROUP_SIZE);
 		desiredGroups = ceilPow2(desiredGroups);
+		this.numGroups = desiredGroups;
+		this.groupMask = desiredGroups - 1;
 		this.capacity = desiredGroups * DEFAULT_GROUP_SIZE;
 		this.ctrl = new byte[this.capacity + DEFAULT_GROUP_SIZE];
 		Arrays.fill(this.ctrl, EMPTY);
@@ -140,9 +142,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 
 	/* fresh-table insertion used only during rehash */
 	private void insertFresh(K key, V value, int h1, byte h2) {
-		int nGroups = numGroups();
-		if (nGroups == 0) { throw new IllegalStateException("No groups allocated"); }
-		int mask = nGroups - 1;
+		int mask = groupMask;
 		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		for (;;) {
 			int base = g * DEFAULT_GROUP_SIZE;
@@ -252,8 +252,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
         int h = hash(key);
         int h1 = h1(h);
         byte h2 = h2(h);
-        int nGroups = numGroups();
-        int mask = nGroups - 1;
+        int mask = groupMask;
         int firstTombstone = -1;
         int visitedGroups = 0;
         int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
@@ -281,7 +280,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
                 int target = (firstTombstone >= 0) ? firstTombstone : idx;
                 return insertAt(target, key, value, h2);
             }
-            if (++visitedGroups >= nGroups) {
+            if (++visitedGroups >= numGroups) {
                 throw new IllegalStateException("Probe cycle exhausted; table appears full of tombstones");
             }
             g = (g + 1) & mask;
@@ -321,8 +320,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 		int h = hash(key);
 		int h1 = h1(h);
 		byte h2 = h2(h);
-		int nGroups = numGroups();
-		int mask = nGroups - 1;
+		int mask = groupMask;
 		int visitedGroups = 0;
 		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		for (;;) {
@@ -341,7 +339,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 			if (emptyMask != 0) { // almost always true
 				return -1;
 			}
-			if (++visitedGroups >= nGroups) { // guard against infinite probe when table is full of tombstones
+			if (++visitedGroups >= numGroups) { // guard against infinite probe when table is full of tombstones
 				return -1;
 			}
 			g = (g + 1) & mask;
@@ -365,8 +363,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 		keys[hole] = null;
 		vals[hole] = null;
 
-		int nGroups = numGroups();
-		int mask = nGroups - 1;
+		int mask = groupMask;
 		int gsize = DEFAULT_GROUP_SIZE;
 
 		for (;;) {
@@ -391,7 +388,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 			int h = hash(keys[next]);
 			int home = h1(h) & mask;
 			int group = next / gsize;
-			int dist = (group - home + nGroups) & mask;
+			int dist = (group - home + numGroups) & groupMask;
 
 			// If entry is in its home group, stop shifting and mark hole empty.
 			if (dist == 0) {

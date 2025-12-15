@@ -5,6 +5,7 @@
 ### Changed
 - optimize `putAll` by pre-sizing capacity for batch insertion to reduce resizing/rehashing (#3, thanks @NBHZW).
 - refactor `put` into `putVal` for code reuse/readability (#3, thanks @NBHZW).
+- Cache group-count derived values to avoid repeated recomputation in hot probe loops, (`numGroups` and `mask`)
 
 
 ## 0.1.6

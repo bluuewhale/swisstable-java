@@ -34,11 +34,13 @@ public class SwissSet<E> extends AbstractSet<E> {
 
 	/* Storage */
 	private final double loadFactor;
-	private byte[] ctrl;
-	private Object[] keys;
+	private int numGroups; // cached group count (updated on init/rehash)
+	private int groupMask; // cached (numGroups - 1), valid because numGroups is power-of-two
+	private byte[] ctrl;   // control bytes (EMPTY/DELETED/H2 fingerprint)
+	private Object[] keys; // key storage
 	private int capacity;
 	private int size;
-	private int tombstones;
+	private int tombstones; // deleted slots
 	private int maxLoad;
 
 	public SwissSet() {
@@ -58,6 +60,8 @@ public class SwissSet<E> extends AbstractSet<E> {
 	private void init(int desiredCapacity) {
 		int nGroups = Math.max(1, (desiredCapacity + DEFAULT_GROUP_SIZE - 1) / DEFAULT_GROUP_SIZE);
 		nGroups = Utils.ceilPow2(nGroups);
+		this.numGroups = nGroups;
+		this.groupMask = nGroups - 1;
 		this.capacity = nGroups * DEFAULT_GROUP_SIZE;
 
 		this.ctrl = new byte[capacity + DEFAULT_GROUP_SIZE]; // sentinel padding
@@ -91,8 +95,7 @@ public class SwissSet<E> extends AbstractSet<E> {
 		int h = hash(e);
 		int h1 = h1(h);
 		byte h2 = h2(h);
-		int nGroups = numGroups();
-		int mask = nGroups - 1;
+		int mask = groupMask;
 		int firstTombstone = -1;
 		int g = h1 & mask;
 		for (;;) {
@@ -148,10 +151,6 @@ public class SwissSet<E> extends AbstractSet<E> {
 	}
 
 	/* Internal helpers */
-	private int numGroups() {
-		return capacity / DEFAULT_GROUP_SIZE;
-	}
-
 	private int hash(Object key) {
 		return Hashing.smearedHash(key);
 	}
@@ -189,6 +188,8 @@ public class SwissSet<E> extends AbstractSet<E> {
 
 		int desiredGroups = Math.max(1, (Math.max(newCapacity, DEFAULT_GROUP_SIZE) + DEFAULT_GROUP_SIZE - 1) / DEFAULT_GROUP_SIZE);
 		desiredGroups = Utils.ceilPow2(desiredGroups);
+		this.numGroups = desiredGroups;
+		this.groupMask = desiredGroups - 1;
 		this.capacity = desiredGroups * DEFAULT_GROUP_SIZE;
 		this.ctrl = new byte[this.capacity + DEFAULT_GROUP_SIZE];
 		Arrays.fill(this.ctrl, EMPTY);
@@ -211,8 +212,7 @@ public class SwissSet<E> extends AbstractSet<E> {
 	}
 
 	private void insertFresh(E key, int h1, byte h2) {
-		int nGroups = numGroups();
-		int mask = nGroups - 1;
+		int mask = groupMask;
 		int g = h1 & mask;
 		for (;;) {
 			int base = g * DEFAULT_GROUP_SIZE;
@@ -234,8 +234,7 @@ public class SwissSet<E> extends AbstractSet<E> {
 		int h = hash(key);
 		int h1 = h1(h);
 		byte h2 = h2(h);
-		int nGroups = numGroups();
-		int mask = nGroups - 1;
+		int mask = groupMask;
 		int g = h1 & mask;
 		for (;;) {
 			int base = g * DEFAULT_GROUP_SIZE;

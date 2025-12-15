@@ -37,6 +37,8 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 	private Object[] keys;   // key storage
 	private Object[] vals;   // value storage
 	private int tombstones;  // deleted slots
+	private int numGroups;   // cached group count (updated on init/rehash)
+	private int groupMask;   // cached (numGroups - 1), valid because numGroups is power-of-two
 
 	public SwissMap() {
 		this(16, DEFAULT_LOAD_FACTOR);
@@ -54,6 +56,8 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 	protected void init(int desiredCapacity) {
 		int nGroups = Math.max(1, (desiredCapacity + GROUP_SIZE - 1) / GROUP_SIZE);
 		nGroups = ceilPow2(nGroups);
+		this.numGroups = nGroups;
+		this.groupMask = nGroups - 1;
 		this.capacity = nGroups * GROUP_SIZE;
 
 		this.ctrl = new long[nGroups];
@@ -76,10 +80,6 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 
 	private int hash(Object key) {
 		return hashNullable(key);
-	}
-
-	private int numGroups() {
-		return capacity / GROUP_SIZE;
 	}
 
 	/* Control byte inspectors */
@@ -166,6 +166,8 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 
 		int desiredGroups = Math.max(1, (Math.max(newCapacity, GROUP_SIZE) + GROUP_SIZE - 1) / GROUP_SIZE);
 		desiredGroups = ceilPow2(desiredGroups);
+		this.numGroups = desiredGroups;
+		this.groupMask = desiredGroups - 1;
 		this.capacity = desiredGroups * GROUP_SIZE;
 		this.ctrl = new long[desiredGroups];
 		Arrays.fill(this.ctrl, broadcast(EMPTY));
@@ -191,9 +193,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		int h = hash(key);
 		int h1 = h1(h);
 		byte h2 = h2(h);
-		int nGroups = numGroups();
-		if (nGroups == 0) { throw new IllegalStateException("No groups allocated"); }
-		int mask = nGroups - 1;
+		int mask = groupMask; // Local snapshot of the group mask
 		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		for (;;) {
 			int base = g * GROUP_SIZE;
@@ -298,9 +298,8 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
         int h = hash(key);
         int h1 = h1(h);
         byte h2 = h2(h);
-        int nGroups = numGroups();
-        int mask = nGroups - 1;
-        int firstTombstone = -1;
+        int mask = groupMask; // Local snapshot of the mask for the probe loop
+        int firstTombstone = -1; 
         int visitedGroups = 0;
         int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
         for (;;) {
@@ -310,7 +309,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
             while (eqMask != 0) {
                 int idx = base + nextEmptySlotIndex(eqMask);
                 if (Objects.equals(keys[idx], key)) {
-                    V old = (V) vals[idx];
+                    V old = castValue(vals[idx]);
                     vals[idx] = value;
                     return old;
                 }
@@ -326,7 +325,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
                 int target = (firstTombstone >= 0) ? firstTombstone : idx;
                 return insertAt(target, key, value, h2);
             }
-            if (++visitedGroups >= nGroups) {
+            if (++visitedGroups >= numGroups) {
                 throw new IllegalStateException("Probe cycle exhausted; table appears full of tombstones");
             }
             g = (g + 1) & mask;
@@ -365,8 +364,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		int h = hash(key);
 		int h1 = h1(h);
 		byte h2 = h2(h);
-		int nGroups = numGroups();
-		int mask = nGroups - 1;
+		int mask = groupMask; // Local snapshot of the mask for the probe loop.
 		int visitedGroups = 0;
 		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		for (;;) {
@@ -384,7 +382,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 			if (emptyMask != 0) {
 				return -1;
 			}
-			if (++visitedGroups >= nGroups) {
+			if (++visitedGroups >= numGroups) {
 				return -1;
 			}
 			g = (g + 1) & mask;
@@ -407,8 +405,8 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		keys[hole] = null;
 		vals[hole] = null;
 
-		int nGroups = numGroups();
-		int mask = nGroups - 1;
+		final int nGroups = this.numGroups;
+		final int mask = this.groupMask;
 
 		for (;;) {
 			int next = (hole + 1 == capacity) ? 0 : hole + 1;

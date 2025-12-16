@@ -26,9 +26,10 @@ dependencies {
     testImplementation 'org.openjdk.jol:jol-core:0.17'
 
     jmhImplementation 'org.openjdk.jmh:jmh-core:1.37'
-    jmhAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
     jmhImplementation 'org.eclipse.collections:eclipse-collections:11.1.0'
     jmhImplementation 'it.unimi.dsi:fastutil:8.5.13'
+    jmhImplementation 'io.github.fzhinkin:xctraceprof:0.0.3'
+    jmhAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
 }
 
 test {
@@ -91,15 +92,15 @@ mavenPublishing {
 }
 
 signing {
-   def keyFile = System.getenv('GPG_SIGNING_KEY')
-   def pass = System.getenv('GPG_SIGNING_PASSWORD')
+  def keyFile = System.getenv('GPG_SIGNING_KEY')
+  def pass = System.getenv('GPG_SIGNING_PASSWORD')
 
-   if (keyFile && pass) {
-       def keyText = new File(keyFile).getText('UTF-8')
-       useInMemoryPgpKeys(keyText, pass)
-   } else {
-       logger.warn("GPG_SIGNING_KEY / GPG_SIGNING_PASSWORD environment variables are not set")
-   }
+  if (keyFile && pass) {
+      def keyText = new File(keyFile).getText('UTF-8')
+      useInMemoryPgpKeys(keyText, pass)
+  } else {
+      logger.warn("GPG_SIGNING_KEY / GPG_SIGNING_PASSWORD environment variables are not set")
+  }
 }
 
 afterEvaluate {

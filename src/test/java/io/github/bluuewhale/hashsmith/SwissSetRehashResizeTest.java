@@ -20,10 +20,10 @@ class SwissSetRehashResizeTest {
 
 	@Test
 	void tombstoneRehashDoesNotResize() {
-		var s = new SwissSet<Integer>(64);
+		var s = new SwissSet<Integer>(16);
 		int initialCap = getIntField(s, "capacity");
 
-		for (int i = 0; i < 16; i++) assertTrue(s.add(i));
+		for (int i = 0; i < 14; i++) assertTrue(s.add(i));
 
 		// Make tombstones dominate (tombstones > size/2) without ever exceeding maxLoad.
 		for (int i = 0; i < 9; i++) assertTrue(s.remove(i));
@@ -34,8 +34,8 @@ class SwissSetRehashResizeTest {
 		assertEquals(initialCap, getIntField(s, "capacity"));
 
 		for (int i = 0; i < 9; i++) assertFalse(s.contains(i));
-		for (int i = 9; i < 16; i++) assertTrue(s.contains(i));
-		assertEquals(7, s.size());
+		for (int i = 9; i < 14; i++) assertTrue(s.contains(i));
+		assertEquals(5, s.size());
 	}
 
 	@Test

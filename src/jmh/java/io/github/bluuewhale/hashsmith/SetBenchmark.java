@@ -233,10 +233,10 @@ public class SetBenchmark {
 //	@Benchmark
 	public void jdkContainsHit(ReadState s, Blackhole bh) { boolean res = s.jdk.contains(s.nextHitKey()); bh.consume(res); }
 
-	@Benchmark
+//	@Benchmark
 	public void fastutilContainsHit(ReadState s, Blackhole bh) { boolean res = s.fastutil.contains(s.nextHitKey()); bh.consume(res); }
 
-	@Benchmark
+//	@Benchmark
 	public void unifiedContainsHit(ReadState s, Blackhole bh) { boolean res = s.unified.contains(s.nextHitKey()); bh.consume(res); }
 
 //	@Benchmark
@@ -245,10 +245,10 @@ public class SetBenchmark {
 //	@Benchmark
 	public void jdkContainsMiss(ReadState s, Blackhole bh) { boolean res = s.jdk.contains(s.nextMissKey()); bh.consume(res); }
 
-	@Benchmark
+//	@Benchmark
 	public void fastutilContainsMiss(ReadState s, Blackhole bh) { boolean res = s.fastutil.contains(s.nextMissKey()); bh.consume(res); }
 
-	@Benchmark
+//	@Benchmark
 	public void unifiedContainsMiss(ReadState s, Blackhole bh) { boolean res = s.unified.contains(s.nextMissKey()); bh.consume(res); }
 
 	// add hit/miss
@@ -258,10 +258,10 @@ public class SetBenchmark {
 //	@Benchmark
 	public void jdkAddHit(PutHitState s, Blackhole bh) { boolean res = s.jdk.add(s.nextHitKey()); bh.consume(res); }
 
-	@Benchmark
+//	@Benchmark
 	public void fastutilAddHit(PutHitState s, Blackhole bh) { boolean res = s.fastutil.add(s.nextHitKey()); bh.consume(res); }
 
-	@Benchmark
+//	@Benchmark
 	public void unifiedAddHit(PutHitState s, Blackhole bh) { boolean res = s.unified.add(s.nextHitKey()); bh.consume(res); }
 
 //	@Benchmark
@@ -270,10 +270,10 @@ public class SetBenchmark {
 //	@Benchmark
 	public void jdkAddMiss(PutHitState s, Blackhole bh) { boolean res = s.jdk.add(s.nextMissKey()); bh.consume(res); }
 
-	@Benchmark
+//	@Benchmark
 	public void fastutilAddMiss(PutMissState s, Blackhole bh) { boolean res = s.fastutil.add(s.nextMissKey()); bh.consume(res); }
 
-	@Benchmark
+//	@Benchmark
 	public void unifiedAddMiss(PutMissState s, Blackhole bh) { boolean res = s.unified.add(s.nextMissKey()); bh.consume(res); }
 
 	private static String nextUuidString(Random rnd) {

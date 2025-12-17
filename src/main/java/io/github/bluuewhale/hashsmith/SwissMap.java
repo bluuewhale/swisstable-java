@@ -79,7 +79,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 	}
 
 	private int hash(Object key) {
-		return hashNullable(key);
+		return hashNonNull(key);
 	}
 
 	/* Control byte inspectors */
@@ -352,8 +352,9 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 	/* lookup utilities */
 	@Override
 	protected int findIndex(Object key) {
+		// Disallow null keys even on empty maps for consistent Map semantics in this project.
+		int h = hashNonNull(key);
 		if (size == 0) return -1;
-		int h = hash(key);
 		int h1 = h1(h);
 		byte h2 = h2(h);
 		int mask = groupMask; // Local snapshot of the mask for the probe loop.

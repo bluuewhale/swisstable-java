@@ -28,15 +28,15 @@ class MapTest {
 				"SwissMap",
 				SwissMap::new,
 				SwissMap::new,
-				true,
-				false
+				false,
+				true
 			),
 			new MapSpec(
 				"SwissSimdMap",
 				SwissSimdMap::new,
 				SwissSimdMap::new,
-				true,
-				false
+				false,
+				true
 			),
 			new MapSpec(
 				"RobinHoodMap",

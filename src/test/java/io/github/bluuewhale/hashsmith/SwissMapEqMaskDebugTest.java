@@ -1,30 +1,21 @@
 package io.github.bluuewhale.hashsmith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
 /**
  * A "visually inspectable" debug test for eqMask.
  *
- * <p>{@code SwissMap.eqMask(long word, byte b)} is private, so we invoke it via reflection.
- * Correctness is validated by comparing against a ground-truth mask computed by direct per-lane
- * (per-byte) equality checks.
- *
- * <p>For a few representative cases, we print intermediate values (hex/binary) so you can
- * intuitively verify how the SWAR transformation produces the final 8-bit mask.
+ * <p>This test calls the real {@link SwissMap#eqMask(long, byte)} implementation to verify the
+ * packed 8-bit match mask.
  */
 class SwissMapEqMaskDebugTest {
+	private final SwissMap<Object, Object> map = new SwissMap<>();
 
-	// Same SWAR constants as SwissMap (used for explanation/printing only).
-	// Correctness is asserted via the ground-truth comparison.
-	private static final long BITMASK_LSB = 0x0101_0101_0101_0101L;
-	private static final long BITMASK_MSB = 0x8080_8080_8080_8080L;
+	int eqMask(long word, byte b) {
+		return map.eqMask(word, b);
+	}
 
     long pack8(byte b0, byte b1, byte b2, byte b3, byte b4, byte b5, byte b6, byte b7) {
         return (b0 & 0xFFL)
@@ -42,13 +33,6 @@ class SwissMapEqMaskDebugTest {
         if (s.length() < 8) s = "0".repeat(8 - s.length()) + s;
         return s;
     }
-
-    int eqMask(long word, byte b) {
-        long x = word ^ ((b & 0xFFL) * BITMASK_LSB);
-        long m = (x - BITMASK_LSB) & ~x & BITMASK_MSB;
-        return (int) ((m * 0x0204_0810_2040_81L) >>> 56);
-    }
-
 
 	@Test
 	void testEqMask() {

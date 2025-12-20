@@ -1,0 +1,80 @@
+name: Feature request
+description: New APIs, behavior changes, documentation improvements, tests, etc.
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! This project is experimental.
+        Requests are much easier to evaluate when they include a **clear use case** and **alternatives**.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - API addition/change
+        - Performance optimization
+        - Memory optimization
+        - Compatibility / versioning policy
+        - Documentation / examples
+        - Tests / benchmarks (JMH)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What’s currently painful? (Include a concrete use case.)
+      placeholder: |
+        e.g. Large putAll workloads trigger frequent resizes causing latency spikes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the desired behavior/API.
+      placeholder: |
+        e.g. Add SwissMap.ensureCapacity(int expectedSize) to avoid repeated resizing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches/workarounds/libraries you considered?
+      placeholder: |
+        - Alternative A: ...
+        - Alternative B: ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact / risks
+      description: Any impact on performance/memory/compatibility (JDK 21+, Vector API)?
+      placeholder: |
+        - Performance: hot-path changes?
+        - Memory: extra metadata/allocation?
+        - Compatibility: keep JDK 21+ requirement?
+    validations:
+      required: false
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example code (optional)
+      render: java
+      placeholder: |
+        // Show how you would use the proposed API/behavior.
+    validations:
+      required: false
+
+

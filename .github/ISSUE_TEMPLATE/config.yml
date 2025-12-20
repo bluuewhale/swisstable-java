@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation / project overview (README)
+    url: https://github.com/bluuewhale/hash-smith#readme
+    about: Usage, requirements (JDK 21+), build & test instructions
+  - name: Design write-up / benchmarks
+    url: https://bluuewhale.github.io/posts/building-a-fast-and-memory-efficient-hash-table-in-java-by-borrowing-the-best-ideas/
+    about: Background, implementation notes, and benchmark discussion
+
+

@@ -1,0 +1,105 @@
+name: Performance / memory regression
+description: Slowdowns, increased memory, GC pressure, etc. (JMH/repro recommended)
+title: "[Perf] "
+labels: ["performance"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Performance issues are highly environment-dependent.
+        Please include **JMH results** or a **reproducible micro-benchmark/test** when possible.
+
+  - type: input
+    id: version_bad
+    attributes:
+      label: Regressed version (or commit)
+      placeholder: "e.g. 0.1.7 / main@<commit>"
+    validations:
+      required: true
+
+  - type: input
+    id: version_good
+    attributes:
+      label: Baseline version (known-good / faster)
+      placeholder: "e.g. 0.1.6 / an earlier commit"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Target implementation
+      options:
+        - SwissMap (SWAR)
+        - SwissSimdMap (Vector API)
+        - SwissSet
+        - RobinHoodMap
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: workload
+    attributes:
+      label: Workload description
+      description: Key/value types, entry count, hit/miss ratio, delete ratio, load factor, etc.
+      placeholder: |
+        Example:
+        - keys: UUID String, values: Integer
+        - size: 1,000,000
+        - ops: put 20%, get(hit) 60%, get(miss) 10%, remove 10%
+        - delete-heavy / high tombstone ratio
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro code / benchmark (recommended)
+      description: Paste JMH benchmark code or a minimal repro.
+      render: java
+      placeholder: |
+        // JMH benchmark or a simple loop-based repro
+    validations:
+      required: false
+
+  - type: textarea
+    id: results
+    attributes:
+      label: Measured results
+      description: Before/after numbers and how you measured (ns/op, ops/s, alloc rate, etc.).
+      render: text
+      placeholder: |
+        - Before (0.1.6): 50 ns/op
+        - After  (0.1.7): 70 ns/op (+40%)
+        - Tool: JMH 1.37, forks=1, warmup=3, iter=5
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: CPU/OS/JDK/JVM flags.
+      placeholder: |
+        - OS: Windows 11 x64
+        - CPU: AMD Ryzen 5 5600
+        - JDK: Temurin 21.0.x
+        - JVM flags: --add-modules jdk.incubator.vector (if SIMD is involved)
+        - GC: (optional) G1/ZGC, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Reproduction command (optional)
+      description: Commands to reproduce locally, if applicable.
+      render: shell
+      placeholder: |
+        ./gradlew jmh
+        ./gradlew test
+    validations:
+      required: false
+
+

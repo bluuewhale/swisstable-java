@@ -1,0 +1,110 @@
+name: Bug report
+description: Incorrect behavior, exceptions, NPEs, infinite loops, wrong results, etc.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.
+        Please include a **minimal reproducible example** (MRE) and **environment details** whenever possible.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - SwissMap (SWAR)
+        - SwissSimdMap (Vector API)
+        - SwissSet
+        - RobinHoodMap
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: HashSmith version
+      description: Maven Central version or commit hash.
+      placeholder: "e.g. 0.1.7 / main@<commit>"
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What goes wrong?
+      placeholder: "e.g. get() returns null for a specific key pattern."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      placeholder: "e.g. get(\"a\") should return 1."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      placeholder: "e.g. get(\"a\") returns null / include the stack trace if applicable."
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproducible example (MRE)
+      description: Prefer a single file (test, main method, snippet, etc.).
+      render: java
+      placeholder: |
+        import io.github.bluuewhale.hashsmith.SwissMap;
+        public class Repro {
+          public static void main(String[] args) {
+            var m = new SwissMap<String, Integer>();
+            // ...
+          }
+        }
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Steps someone else can follow.
+      placeholder: |
+        1) ./gradlew test
+        2) Run the snippet/test
+        3) Observe the result
+    validations:
+      required: false
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS/JDK/JVM details (especially important for Vector API issues).
+      placeholder: |
+        - OS: Windows 11 x64
+        - JDK: Temurin 21.0.x
+        - JVM flags: --add-modules jdk.incubator.vector (if applicable)
+        - CPU: (optional)
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack trace
+      render: text
+      placeholder: "Paste the exception stack trace / logs here."
+    validations:
+      required: false
+
+

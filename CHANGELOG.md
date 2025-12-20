@@ -2,6 +2,10 @@
 ## Unreleased
 ### Added
 ### Fixed
+### Changed
+
+## 0.1.7
+### Fixed
 - eqMask zero-byte detection bug caused by cross-byte borrow (Mycroft haszero mask) (#8, thanks to @aqrit)
 
 ### Changed

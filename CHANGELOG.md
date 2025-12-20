@@ -2,6 +2,8 @@
 ## Unreleased
 ### Added
 ### Fixed
+- eqMask zero-byte detection bug caused by cross-byte borrow (Mycroft haszero mask) (#8, thanks to @aqrit)
+
 ### Changed
 - optimize `putAll` by pre-sizing capacity for batch insertion to reduce resizing/rehashing (#3, thanks @NBHZW).
 - refactor `put` into `putVal` for code reuse/readability (#3, thanks @NBHZW).

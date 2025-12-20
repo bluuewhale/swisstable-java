@@ -104,15 +104,11 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 
 	/**
 	 * Compare bytes in word against b; return packed 8-bit mask of matches.
+	 * see: https://stackoverflow.com/questions/68695913/how-to-write-a-swar-comparison-which-puts-0xff-in-a-lane-on-matches/68701617#68701617
 	 */
-	private int eqMask(long word, byte b) {
-		// XOR with the broadcasted fingerprint so that matching bytes become 0 and non-matching stay non-zero.
+	protected int eqMask(long word, byte b) {
 		long x = word ^ broadcast(b);
-		// Subtract 1 from each byte: bytes that were 0 underflow and set their MSB (0x80), others keep MSB unchanged.
-		// AND with ~x to clear any MSB that came from originally non-zero bytes (we only want underflow-triggered MSBs).
-		// AND with BITMASK_MSB to keep just the per-byte MSB flags (one per lane).
-		long m = (x - BITMASK_LSB) & ~x & BITMASK_MSB;
-		// Compress spaced MSBs (bits 7,15,...) into the low byte (bit0..7).
+		long m = (((x >>> 1) | BITMASK_MSB) - x) & BITMASK_MSB;
 		return (int) ((m * 0x0204_0810_2040_81L) >>> 56);
 	}
 

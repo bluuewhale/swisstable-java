@@ -188,8 +188,9 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 			int emptyMask = eqMask(word, EMPTY);
 			if (emptyMask != 0) {
 				int idx = base + Integer.numberOfTrailingZeros(emptyMask);
-				setCtrlAt(ctrl, idx, h2);
+				// Publish entry first, then mark ctrl as FULL.
 				setEntryAt(idx, key, value);
+				setCtrlAt(ctrl, idx, h2);
 				size++;
 				return;
 			}
@@ -299,7 +300,8 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
             while (eqMask != 0) {
                 int idx = base + Integer.numberOfTrailingZeros(eqMask);
                 Object k = keys[idx];
-                if (k == key || k.equals(key)) {
+                // NULL-safe: an optimistic reader may observe ctrl and then see a null key while a writer is publishing.
+                if (k == key || (k != null && k.equals(key))) {
                     V old = castValue(vals[idx]);
                     vals[idx] = value;
                     return old;
@@ -367,7 +369,8 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 			while (eqMask != 0) {
 				int idx = base + Integer.numberOfTrailingZeros(eqMask);
                 Object k = keys[idx];
-                if (k == key || k.equals(key)) {
+                // NULL-safe: an optimistic reader may observe ctrl and then see a null key while a writer is publishing.
+                if (k == key || (k != null && k.equals(key))) {
 					return idx;
 				}
 				eqMask &= eqMask - 1; // clear LSB
@@ -385,8 +388,9 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 
 	private V insertAt(int idx, K key, V value, byte h2) {
 		if (isDeleted(ctrlAt(ctrl, idx))) tombstones--; // TODO: do not recalculate tombstones here
-		setCtrlAt(ctrl, idx, h2);
+		// Publish entry first, then mark ctrl as FULL.
 		setEntryAt(idx, key, value);
+		setCtrlAt(ctrl, idx, h2);
 		size++;
 		return null;
 	}

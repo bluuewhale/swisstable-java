@@ -150,9 +150,10 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 			for (int j = 0; j < DEFAULT_GROUP_SIZE; j++) {
 				int idx = base + j;
 				if (isEmpty(ctrl[idx])) {
-					ctrl[idx] = h2;
+					// Publish entry first, then mark ctrl as FULL.
 					keys[idx] = key;
 					vals[idx] = value;
+					ctrl[idx] = h2;
 					size++;
 					return;
 				}
@@ -269,7 +270,8 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
                 int bit = Long.numberOfTrailingZeros(eqMask);
                 int idx = base + bit;
 				Object k = keys[idx];
-				if (k == key || k.equals(key)) { // almost always true; too bad I can’t hint the compiler
+				// NULL-safe: an optimistic reader may observe ctrl and then see a null key while a writer is publishing.
+				if (k == key || (k != null && k.equals(key))) { // almost always true; too bad I can’t hint the compiler
                     @SuppressWarnings("unchecked") V old = (V) vals[idx];
                     vals[idx] = value;
                     return old;
@@ -339,7 +341,8 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 				int bit = Long.numberOfTrailingZeros(eqMask);
 				int idx = base + bit;
 				Object k = keys[idx];
-				if (k == key || k.equals(key)) { // almost always true
+				// NULL-safe: an optimistic reader may observe ctrl and then see a null key while a writer is publishing.
+				if (k == key || (k != null && k.equals(key))) { // almost always true
 					return idx;
 				}
 				eqMask &= eqMask - 1;
@@ -357,9 +360,10 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 
 	private V insertAt(int idx, K key, V value, byte h2) {
 		if (isDeleted(ctrl[idx])) tombstones--;
-		ctrl[idx] = h2;
+		// Publish entry first, then mark ctrl as FULL.
 		keys[idx] = key;
 		vals[idx] = value;
+		ctrl[idx] = h2;
 		size++;
 		return null;
 	}

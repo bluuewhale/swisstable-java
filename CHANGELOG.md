@@ -1,10 +1,10 @@
 # Changelog
 ## Unreleased
 ### Added
-- Added `ConcurrentSwissMap`: a sharded, thread-safe wrapper around `SwissMap`.
+- Added `ConcurrentSwissMap`: a sharded, thread-safe wrapper around `SwissMap`. (#10)
 ### Fixed
 ### Changed
-- `SwissMap` and `SwissSimdMap` probing changed from linear probing to triangular/quadratic probing (group-step sequence `+1, +2, +3, ...`) to reduce primary clustering.
+- `SwissMap` and `SwissSimdMap` probing changed from linear probing to triangular/quadratic probing (group-step sequence `+1, +2, +3, ...`) to reduce primary clustering. (#9)
 
 ## 0.1.7
 ### Fixed

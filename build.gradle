@@ -8,8 +8,7 @@ group = 'io.github.bluuewhale'
 version = '0.1.7'
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
     withSourcesJar()
 }
 
@@ -18,22 +17,60 @@ repositories {
 }
 
 dependencies {
-    testImplementation platform('org.junit:junit-bom:5.10.0')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    testImplementation 'org.eclipse.collections:eclipse-collections:11.1.0'
-    testImplementation 'it.unimi.dsi:fastutil:8.5.13'
-    testImplementation 'org.openjdk.jol:jol-core:0.17'
-
     jmhImplementation 'org.openjdk.jmh:jmh-core:1.37'
     jmhAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
     jmhImplementation 'org.eclipse.collections:eclipse-collections:11.1.0'
     jmhImplementation 'it.unimi.dsi:fastutil:8.5.13'
 }
 
-test {
-    useJUnitPlatform()
-    jvmArgs '--add-modules', 'jdk.incubator.vector'
+testing.suites {
+    test {
+        useJUnitJupiter('5.10.0')
+
+        dependencies {
+            implementation 'it.unimi.dsi:fastutil:8.5.13'
+            implementation 'org.openjdk.jol:jol-core:0.17'
+            implementation 'org.eclipse.collections:eclipse-collections:11.1.0'
+        }
+        targets.all {
+            testTask.configure {
+                jvmArgs '--add-modules', 'jdk.incubator.vector'
+            }
+        }
+    }
+    apacheTest(JvmTestSuite) {
+        useJUnitJupiter('5.10.0')
+
+        dependencies {
+            implementation(project())
+            implementation("org.apache.commons:commons-lang3:3.20.0")
+            implementation("org.apache.commons:commons-collections4:4.5.0")
+            implementation("org.apache.commons:commons-collections4:4.5.0") {
+                artifact { classifier = "tests" }
+            }
+        }
+        targets.all {
+            testTask.configure {
+                jvmArgs '--add-modules', 'jdk.incubator.vector'
+            }
+        }
+    }
+    googleTest(JvmTestSuite) {
+        useJUnit()
+
+        dependencies {
+            implementation(project())
+            implementation 'com.google.guava:guava-testlib:33.5.0-jre'
+        }
+        targets.all {
+            testTask.configure {
+                jvmArgs '--add-modules', 'jdk.incubator.vector'
+            }
+        }
+    }
+    tasks.check.configure {
+        dependsOn(tasks.withType(Test))
+    }
 }
 
 // JIT / ASM (HotSpot PrintAssembly) runner for SwissMap.findIndexHashed.

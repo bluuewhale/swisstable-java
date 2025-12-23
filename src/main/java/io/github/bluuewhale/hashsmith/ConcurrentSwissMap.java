@@ -399,6 +399,11 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 		public int hashCode() {
 			return Objects.hashCode(key) ^ Objects.hashCode(value);
 		}
+
+		@Override
+		public String toString() {
+			return key + "=" + value;
+		}
 	}
 
 }

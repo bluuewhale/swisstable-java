@@ -491,6 +491,11 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 		public int hashCode() {
 			return Objects.hashCode(getKey()) ^ Objects.hashCode(getValue());
 		}
+
+		@Override
+		public String toString() {
+			return keys[idx] + "=" + vals[idx];
+		}
 	}
 
 	private class KeyView extends java.util.AbstractSet<K> {

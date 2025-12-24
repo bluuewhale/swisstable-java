@@ -31,7 +31,6 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 	private final StampedLock[] locks;
 	private final SwissMap<K, V>[] maps;
 	private final int shardBits;
-	private final int shardShift;
 
 	public ConcurrentSwissMap() {
 		this(defaultShardCount(), DEFAULT_INITIAL_CAPACITY, DEFAULT_LOAD_FACTOR);
@@ -55,7 +54,6 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 		if (shift < 0) {
 			throw new IllegalArgumentException("shardCount too large: max shards is 2^(Integer.SIZE-7)");
 		}
-		this.shardShift = shift;
 
 		StampedLock[] locks = new StampedLock[sc];
 		@SuppressWarnings("unchecked")
@@ -83,9 +81,8 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 
 	private int shardOfHash(int smearedHash) {
 		if (shardBits == 0) return 0;
-		// Leave the lower 7 bits for SwissMap's H2 tag; shard by the remaining bits (H1).
-		int idx = (smearedHash >>> 7) >>> shardShift;
-		return idx;
+		// shardBits are taken from the MSBs of the smeared hash.
+		return smearedHash >>> (Integer.SIZE - shardBits);
 	}
 
 	private int shardOf(Object key) {

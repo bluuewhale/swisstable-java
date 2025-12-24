@@ -97,8 +97,10 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 		SwissMap<K, V> map = maps[idx];
 
 		long stamp = lock.tryOptimisticRead();
-		V v = map.get(key, h);
-		if (lock.validate(stamp)) return v;
+		if (stamp != 0L) {
+			V v = map.get(key, h);
+			if (lock.validate(stamp)) return v;
+		}
 
 		// Fallback to read lock.
 		stamp = lock.readLock();
@@ -117,8 +119,10 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 		SwissMap<K, V> map = maps[idx];
 
 		long stamp = lock.tryOptimisticRead();
-		boolean ok = map.containsKey(key, h);
-		if (lock.validate(stamp)) return ok;
+		if (stamp != 0L) {
+			boolean ok = map.containsKey(key, h);
+			if (lock.validate(stamp)) return ok;
+		}
 
 		// Fallback to read lock.
 		stamp = lock.readLock();

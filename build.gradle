@@ -91,17 +91,17 @@ mavenPublishing {
     }
 }
 
-signing {
-  def keyFile = System.getenv('GPG_SIGNING_KEY')
-  def pass = System.getenv('GPG_SIGNING_PASSWORD')
+// signing {
+//   def keyFile = System.getenv('GPG_SIGNING_KEY')
+//   def pass = System.getenv('GPG_SIGNING_PASSWORD')
 
-  if (keyFile && pass) {
-      def keyText = new File(keyFile).getText('UTF-8')
-      useInMemoryPgpKeys(keyText, pass)
-  } else {
-      logger.warn("GPG_SIGNING_KEY / GPG_SIGNING_PASSWORD environment variables are not set")
-  }
-}
+//   if (keyFile && pass) {
+//       def keyText = new File(keyFile).getText('UTF-8')
+//       useInMemoryPgpKeys(keyText, pass)
+//   } else {
+//       logger.warn("GPG_SIGNING_KEY / GPG_SIGNING_PASSWORD environment variables are not set")
+//   }
+// }
 
 afterEvaluate {
     tasks.named("generateMetadataFileForMavenPublication") {

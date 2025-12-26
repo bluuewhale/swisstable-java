@@ -214,7 +214,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		int h = hash(key);
 		int h1 = h1(h);
 		byte h2 = h2(h);
-		long[] ctrl = this.ctrl; // local snapshot 
+		long[] ctrl = this.ctrl; // local snapshot
 		int mask = groupMask; // local snapshot
 		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		int step = 0; // triangular probing step over groups

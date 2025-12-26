@@ -44,11 +44,11 @@ import org.openjdk.jmh.infra.Blackhole;
         "-XX:StartFlightRecording=name=JMHProfile,filename=simd-eq.jfr,settings=profile",
         "-XX:FlightRecorderOptions=stackdepth=256",
         "-XX:+UnlockDiagnosticVMOptions",
-        "-XX:+PrintCompilation",
-        "-XX:+PrintInlining",
-        "-XX:+PrintAssembly",
-        "-XX:CompileCommand=print,io.github.bluuewhale.hashsmith.SimdEqBenchmark::eq_toLong",
-        "-XX:CompileCommand=compileonly,io.github.bluuewhale.hashsmith.SimdEqBenchmark::eq_toLong",
+//        "-XX:+PrintCompilation",
+//        "-XX:+PrintInlining",
+//        "-XX:+PrintAssembly",
+//        "-XX:CompileCommand=print,io.github.bluuewhale.hashsmith.SimdEqBenchmark::eq_toLong",
+//        "-XX:CompileCommand=compileonly,io.github.bluuewhale.hashsmith.SimdEqBenchmark::eq_toLong",
         "-XX:-TieredCompilation"
     }
 )
@@ -202,7 +202,7 @@ public class SimdEqBenchmark {
     /**
      * (D) Measure the full pipeline (load + eq + toLong), matching SwissSimdMap's simdEq shape.
      */
-    @Benchmark
+//    @Benchmark
     public void pipeline_load_eq_toLong(S s, Blackhole bh) {
         bh.consume(toLong(eq(load(s.array, s.base), s.value)));
     }
@@ -210,7 +210,7 @@ public class SimdEqBenchmark {
     /**
      * (D-loop) Repeated pipeline to reduce per-invocation overhead impact.
      */
-    @Benchmark
+//    @Benchmark
     public void pipeline_loop(S s, Blackhole bh) {
         for (int i = 0; i < LOOP; i++) {
             bh.consume(toLong(eq(load(s.array, s.base), s.value)));

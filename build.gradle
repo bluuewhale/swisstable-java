@@ -36,6 +36,32 @@ test {
     jvmArgs '--add-modules', 'jdk.incubator.vector'
 }
 
+// JIT / ASM (HotSpot PrintAssembly) runner for SwissMap.findIndexHashed.
+// Usage:
+//   ./gradlew jitAsm | tee jit-asm.txt
+// NOTE: PrintAssembly requires an hsdis library for your JDK. See docs/JIT-ASM.md.
+tasks.register('jitAsm', JavaExec) {
+    group = 'verification'
+    description = 'Run a small harness that heats up SwissMap.findIndexHashed and prints the generated machine code via -XX:+PrintAssembly (requires hsdis).'
+
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'io.github.bluuewhale.hashsmith.SwissMapAsmProbe'
+
+    jvmArgs = [
+            '-Xms256m',
+            '-Xmx256m',
+            '-Xbatch',
+            '-XX:TieredStopAtLevel=4',
+            // Assembly
+            '-XX:+UnlockDiagnosticVMOptions',
+            '-XX:+PrintAssembly',
+            // Reduce noise: try to compile/print only the method we care about.
+            '-XX:CompileCommand=quiet',
+            '-XX:CompileCommand=compileonly,io.github.bluuewhale.hashsmith.SwissMap::findIndexHashed',
+            '-XX:CompileCommand=print,io.github.bluuewhale.hashsmith.SwissMap::findIndexHashed',
+    ]
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
 }
